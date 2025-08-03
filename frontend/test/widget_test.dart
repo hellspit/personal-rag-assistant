@@ -7,7 +7,8 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:rag/main.dart';
+import 'package:rag/app.dart';
+import 'package:rag/screens/voice_assistant_screen.dart';
 
 void main() {
   testWidgets('Voice Assistant app smoke test', (WidgetTester tester) async {
