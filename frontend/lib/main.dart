@@ -22,12 +22,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Personal Assistant RAG',
       theme: ThemeData(
-        primarySwatch: Colors.pink,
+        primarySwatch: Colors.red,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF0A0A0A),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFF69B4), // Hot pink
-          secondary: Color(0xFFFF1493), // Deep pink
+          primary: Color(0xFFFF0000), // Bright red
+          secondary: Color(0xFF8B0000), // Dark red
           surface: Color(0xFF1A1A1A),
         ),
       ),
@@ -273,11 +273,11 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                             center: Alignment.center,
                             radius: 1.2,
                             colors: [
-                              const Color(0xFFFF69B4).withValues(
-                                alpha: 0.03 + (_ambientAnimation.value * 0.02),
+                              const Color(0xFFFF0000).withValues(
+                                alpha: 0.08 + (_ambientAnimation.value * 0.05),
                               ),
-                              const Color(0xFFFF1493).withValues(
-                                alpha: 0.02 + (_ambientAnimation.value * 0.01),
+                              const Color(0xFF8B0000).withValues(
+                                alpha: 0.05 + (_ambientAnimation.value * 0.03),
                               ),
                               Colors.transparent,
                             ],
@@ -296,15 +296,15 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                               center: Alignment.center,
                               radius: 1.0,
                               colors: [
-                                const Color(0xFFFF69B4).withValues(
-                                  alpha: _glowAnimation.value * 0.15,
-                                ),
                                 const Color(
-                                  0xFFFF1493,
-                                ).withValues(alpha: _glowAnimation.value * 0.1),
-                                const Color(0xFFFFB6C1).withValues(
-                                  alpha: _glowAnimation.value * 0.05,
-                                ),
+                                  0xFFFF0000,
+                                ).withValues(alpha: _glowAnimation.value * 0.4),
+                                const Color(
+                                  0xFF8B0000,
+                                ).withValues(alpha: _glowAnimation.value * 0.3),
+                                const Color(
+                                  0xFFDC143C,
+                                ).withValues(alpha: _glowAnimation.value * 0.2),
                                 Colors.transparent,
                               ],
                               stops: const [0.0, 0.4, 0.7, 1.0],
@@ -331,10 +331,10 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                               gradient: RadialGradient(
                                 colors: [
                                   const Color(
-                                    0xFFFF69B4,
+                                    0xFFFF0000,
                                   ).withValues(alpha: 0.6),
                                   const Color(
-                                    0xFFFF1493,
+                                    0xFF8B0000,
                                   ).withValues(alpha: 0.4),
                                   const Color(
                                     0xFF000000,
@@ -346,37 +346,56 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                                 stops: const [0.0, 0.3, 0.8, 1.0],
                               ),
                               boxShadow: [
-                                // Primary neon glow
+                                // Primary neon glow - much brighter and larger
                                 BoxShadow(
-                                  color: const Color(0xFFFF69B4).withValues(
+                                  color: const Color(0xFFFF0000).withValues(
+                                    alpha: 1.0 * _glowAnimation.value,
+                                  ),
+                                  blurRadius: 40 + (_glowAnimation.value * 60),
+                                  spreadRadius: 8 + (_glowAnimation.value * 20),
+                                ),
+                                // Secondary neon glow - enhanced
+                                BoxShadow(
+                                  color: const Color(0xFFFF0000).withValues(
                                     alpha: 0.8 * _glowAnimation.value,
                                   ),
-                                  blurRadius: 20 + (_glowAnimation.value * 25),
-                                  spreadRadius: 3 + (_glowAnimation.value * 8),
+                                  blurRadius: 30 + (_glowAnimation.value * 45),
+                                  spreadRadius: 5 + (_glowAnimation.value * 15),
                                 ),
-                                // Secondary neon glow
+                                // Tertiary neon glow - more intense
                                 BoxShadow(
-                                  color: const Color(0xFFFF1493).withValues(
+                                  color: const Color(0xFF8B0000).withValues(
+                                    alpha: 0.7 * _glowAnimation.value,
+                                  ),
+                                  blurRadius: 25 + (_glowAnimation.value * 35),
+                                  spreadRadius: 3 + (_glowAnimation.value * 12),
+                                ),
+                                // Fourth neon glow layer
+                                BoxShadow(
+                                  color: const Color(0xFFDC143C).withValues(
                                     alpha: 0.6 * _glowAnimation.value,
                                   ),
-                                  blurRadius: 15 + (_glowAnimation.value * 20),
-                                  spreadRadius: 2 + (_glowAnimation.value * 6),
+                                  blurRadius: 20 + (_glowAnimation.value * 30),
+                                  spreadRadius: 2 + (_glowAnimation.value * 10),
                                 ),
-                                // Tertiary neon glow
+                                // Ambient glow - much larger and brighter
                                 BoxShadow(
-                                  color: const Color(0xFFFFB6C1).withValues(
+                                  color: const Color(0xFFFF0000).withValues(
                                     alpha: 0.4 * _glowAnimation.value,
                                   ),
-                                  blurRadius: 10 + (_glowAnimation.value * 15),
-                                  spreadRadius: 1 + (_glowAnimation.value * 4),
+                                  blurRadius: 60 + (_glowAnimation.value * 80),
+                                  spreadRadius:
+                                      10 + (_glowAnimation.value * 25),
                                 ),
-                                // Ambient glow
+                                // Extra wide ambient glow
                                 BoxShadow(
-                                  color: const Color(0xFFFF69B4).withValues(
+                                  color: const Color(0xFFFF0000).withValues(
                                     alpha: 0.2 * _glowAnimation.value,
                                   ),
-                                  blurRadius: 30 + (_glowAnimation.value * 40),
-                                  spreadRadius: 5 + (_glowAnimation.value * 10),
+                                  blurRadius:
+                                      100 + (_glowAnimation.value * 120),
+                                  spreadRadius:
+                                      15 + (_glowAnimation.value * 35),
                                 ),
                                 // Drop shadow for depth
                                 BoxShadow(
@@ -420,24 +439,24 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(
-                                        0xFFFF69B4,
+                                        0xFFFF0000,
                                       ).withValues(alpha: 0.9),
                                       borderRadius: BorderRadius.circular(25),
                                       border: Border.all(
-                                        color: const Color(0xFFFF1493),
+                                        color: const Color(0xFF8B0000),
                                         width: 2,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
                                           color: const Color(
-                                            0xFFFF69B4,
+                                            0xFFFF0000,
                                           ).withValues(alpha: 0.8),
                                           blurRadius: 20,
                                           spreadRadius: 5,
                                         ),
                                         BoxShadow(
                                           color: const Color(
-                                            0xFFFF1493,
+                                            0xFF8B0000,
                                           ).withValues(alpha: 0.6),
                                           blurRadius: 15,
                                           spreadRadius: 3,
@@ -453,7 +472,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                                         letterSpacing: 2.0,
                                         shadows: [
                                           Shadow(
-                                            color: Color(0xFFFF1493),
+                                            color: Color(0xFF8B0000),
                                             blurRadius: 5,
                                           ),
                                         ],
@@ -473,7 +492,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
                                     color: const Color(
-                                      0xFFFF69B4,
+                                      0xFFFF0000,
                                     ).withValues(alpha: 0.3),
                                     width: 1,
                                   ),
@@ -485,16 +504,16 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
                                         colors: [
-                                          Color(0xFFFF69B4),
-                                          Color(0xFFFF1493),
-                                          Color(0xFFFFB6C1),
+                                          Color(0xFFFF0000),
+                                          Color(0xFF8B0000),
+                                          Color(0xFFDC143C),
                                         ],
                                       ),
                                       borderRadius: BorderRadius.circular(4),
                                       boxShadow: [
                                         BoxShadow(
                                           color: const Color(
-                                            0xFFFF69B4,
+                                            0xFFFF0000,
                                           ).withValues(alpha: 0.6),
                                           blurRadius: 8,
                                           spreadRadius: 2,
