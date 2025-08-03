@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'dart:async';
-import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -30,7 +29,6 @@ class MyApp extends StatelessWidget {
           primary: Color(0xFF00FFFF),
           secondary: Color(0xFFFF00FF),
           surface: Color(0xFF111111),
-          background: Color(0xFF000000),
         ),
       ),
       home: const VoiceAssistantScreen(),
@@ -43,6 +41,7 @@ class VoiceProvider extends ChangeNotifier {
   bool _isRecording = false;
   double _audioLevel = 0.0;
   Timer? _levelTimer;
+  bool _isMonitoring = false;
 
   bool get isRecording => _isRecording;
   double get audioLevel => _audioLevel;
@@ -51,10 +50,10 @@ class VoiceProvider extends ChangeNotifier {
     await Permission.microphone.request();
   }
 
-  Future<void> startRecording() async {
-    if (await _audioRecorder.hasPermission()) {
+  Future<void> startContinuousMonitoring() async {
+    if (await _audioRecorder.hasPermission() && !_isMonitoring) {
       final tempDir = await getTemporaryDirectory();
-      final audioPath = '${tempDir.path}/audio_recording.m4a';
+      final audioPath = '${tempDir.path}/ambient_audio.m4a';
 
       await _audioRecorder.start(
         const RecordConfig(
@@ -64,35 +63,53 @@ class VoiceProvider extends ChangeNotifier {
         ),
         path: audioPath,
       );
+      _isMonitoring = true;
+      _startRealTimeAudioMonitoring();
+      notifyListeners();
+    }
+  }
+
+  Future<void> startRecording() async {
+    if (await _audioRecorder.hasPermission()) {
       _isRecording = true;
-      _startLevelMonitoring();
       notifyListeners();
     }
   }
 
   Future<void> stopRecording() async {
-    await _audioRecorder.stop();
     _isRecording = false;
-    _levelTimer?.cancel();
-    _audioLevel = 0.0;
     notifyListeners();
   }
 
-  void _startLevelMonitoring() {
-    _levelTimer = Timer.periodic(const Duration(milliseconds: 100), (
+  void _startRealTimeAudioMonitoring() {
+    _levelTimer = Timer.periodic(const Duration(milliseconds: 50), (
       timer,
     ) async {
-      if (_isRecording) {
-        final level = await _audioRecorder.getAmplitude();
-        _audioLevel = (level.current / 100).clamp(0.0, 1.0);
-        notifyListeners();
+      if (_isMonitoring) {
+        try {
+          final level = await _audioRecorder.getAmplitude();
+          // Convert amplitude to a normalized value (0.0 to 1.0)
+          // The amplitude.current typically ranges from 0 to 100
+          double normalizedLevel = (level.current / 100).clamp(0.0, 1.0);
+
+          // Apply smoothing to avoid jarring changes
+          _audioLevel = (_audioLevel * 0.6) + (normalizedLevel * 0.4);
+          notifyListeners();
+        } catch (error) {
+          debugPrint('Error getting amplitude: $error');
+        }
       }
     });
   }
 
+  void _stopRealTimeAudioMonitoring() {
+    _levelTimer?.cancel();
+    _levelTimer = null;
+  }
+
   @override
   void dispose() {
-    _levelTimer?.cancel();
+    _stopRealTimeAudioMonitoring();
     _audioRecorder.dispose();
     super.dispose();
   }
@@ -142,6 +159,8 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
   Future<void> _requestPermissions() async {
     final provider = context.read<VoiceProvider>();
     await provider.requestPermissions();
+    // Start continuous audio monitoring immediately
+    await provider.startContinuousMonitoring();
   }
 
   @override
@@ -149,13 +168,35 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
     super.didChangeDependencies();
     final provider = context.watch<VoiceProvider>();
 
-    // Animate based on audio level
-    if (provider.isRecording && provider.audioLevel > 0.1) {
-      _pulseController.forward();
-      _glowController.forward();
+    // Always animate based on real-time audio level
+    double audioIntensity = provider.audioLevel.clamp(0.0, 1.0);
+
+    // Make animations more responsive to voice input
+    if (audioIntensity > 0.05) {
+      // Use the audio level to control animation intensity with more dynamic response
+      double pulseIntensity = 0.8 + (audioIntensity * 0.4); // Range: 0.8 to 1.2
+      double glowIntensity =
+          audioIntensity; // Direct mapping for more responsive glow
+
+      // Animate the controllers to the target values
+      _pulseController.animateTo(
+        pulseIntensity,
+        duration: const Duration(milliseconds: 100),
+      );
+      _glowController.animateTo(
+        glowIntensity,
+        duration: const Duration(milliseconds: 50),
+      );
     } else {
-      _pulseController.reverse();
-      _glowController.reverse();
+      // Gentle pulsing when no significant audio
+      _pulseController.animateTo(
+        0.9,
+        duration: const Duration(milliseconds: 200),
+      );
+      _glowController.animateTo(
+        0.1,
+        duration: const Duration(milliseconds: 200),
+      );
     }
   }
 
@@ -177,66 +218,67 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
             colors: [Color(0xFF000000), Color(0xFF0A0A0A), Color(0xFF1A1A1A)],
           ),
         ),
-        child: Center(
-          child: Consumer<VoiceProvider>(
-            builder: (context, voiceProvider, child) {
-              return GestureDetector(
-                onTapDown: (_) => voiceProvider.startRecording(),
-                onTapUp: (_) => voiceProvider.stopRecording(),
-                onTapCancel: () => voiceProvider.stopRecording(),
-                child: AnimatedBuilder(
-                  animation: Listenable.merge([
-                    _pulseAnimation,
-                    _glowAnimation,
-                  ]),
-                  builder: (context, child) {
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Outer neon glow effect
-                        Transform.scale(
-                          scale: _pulseAnimation.value,
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFF00FF).withValues(
-                                    alpha: _glowAnimation.value * 1.0,
-                                  ),
-                                  blurRadius: 50 + (_glowAnimation.value * 40),
-                                  spreadRadius:
-                                      12 + (_glowAnimation.value * 20),
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFFFF00FF).withValues(
-                                    alpha: _glowAnimation.value * 0.8,
-                                  ),
-                                  blurRadius: 35 + (_glowAnimation.value * 30),
-                                  spreadRadius: 8 + (_glowAnimation.value * 15),
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFFFF00FF).withValues(
-                                    alpha: _glowAnimation.value * 0.6,
-                                  ),
-                                  blurRadius: 25 + (_glowAnimation.value * 25),
-                                  spreadRadius: 5 + (_glowAnimation.value * 12),
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFFFF00FF).withValues(
-                                    alpha: _glowAnimation.value * 0.4,
-                                  ),
-                                  blurRadius: 15 + (_glowAnimation.value * 20),
-                                  spreadRadius: 3 + (_glowAnimation.value * 10),
-                                ),
-                              ],
-                            ),
+        child: Consumer<VoiceProvider>(
+          builder: (context, voiceProvider, child) {
+            return AnimatedBuilder(
+              animation: Listenable.merge([_pulseAnimation, _glowAnimation]),
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    // Outer neon glow effect - positioned to allow full screen glow
+                    Positioned(
+                      left: MediaQuery.of(context).size.width / 2 - 100,
+                      top: MediaQuery.of(context).size.height / 2 - 100,
+                      child: Transform.scale(
+                        scale: _pulseAnimation.value,
+                        child: Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFFF00FF,
+                                ).withValues(alpha: _glowAnimation.value * 1.2),
+                                blurRadius: 80 + (_glowAnimation.value * 100),
+                                spreadRadius: 20 + (_glowAnimation.value * 50),
+                              ),
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF00FFFF,
+                                ).withValues(alpha: _glowAnimation.value * 0.8),
+                                blurRadius: 60 + (_glowAnimation.value * 80),
+                                spreadRadius: 15 + (_glowAnimation.value * 40),
+                              ),
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFFF00FF,
+                                ).withValues(alpha: _glowAnimation.value * 0.9),
+                                blurRadius: 40 + (_glowAnimation.value * 60),
+                                spreadRadius: 10 + (_glowAnimation.value * 30),
+                              ),
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFFF00FF,
+                                ).withValues(alpha: _glowAnimation.value * 0.6),
+                                blurRadius: 25 + (_glowAnimation.value * 40),
+                                spreadRadius: 5 + (_glowAnimation.value * 20),
+                              ),
+                            ],
                           ),
                         ),
-                        // Main circle with logo
-                        Transform.scale(
+                      ),
+                    ),
+                    // Main circle with logo and touch area - positioned to allow full screen glow
+                    Positioned(
+                      left: MediaQuery.of(context).size.width / 2 - 75,
+                      top: MediaQuery.of(context).size.height / 2 - 75,
+                      child: GestureDetector(
+                        onTapDown: (_) => voiceProvider.startRecording(),
+                        onTapUp: (_) => voiceProvider.stopRecording(),
+                        onTapCancel: () => voiceProvider.stopRecording(),
+                        child: Transform.scale(
                           scale: _pulseAnimation.value,
                           child: Container(
                             width: 150,
@@ -259,25 +301,25 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFFFF00FF,
-                                  ).withValues(alpha: 0.9),
-                                  blurRadius: 25,
-                                  spreadRadius: 8,
+                                  color: const Color(0xFFFF00FF).withValues(
+                                    alpha: 0.9 * _glowAnimation.value,
+                                  ),
+                                  blurRadius: 25 + (_glowAnimation.value * 30),
+                                  spreadRadius: 8 + (_glowAnimation.value * 15),
                                 ),
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFFFF00FF,
-                                  ).withValues(alpha: 0.7),
-                                  blurRadius: 15,
-                                  spreadRadius: 4,
+                                  color: const Color(0xFF00FFFF).withValues(
+                                    alpha: 0.7 * _glowAnimation.value,
+                                  ),
+                                  blurRadius: 15 + (_glowAnimation.value * 25),
+                                  spreadRadius: 4 + (_glowAnimation.value * 10),
                                 ),
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFFFF00FF,
-                                  ).withValues(alpha: 0.5),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
+                                  color: const Color(0xFFFF00FF).withValues(
+                                    alpha: 0.5 * _glowAnimation.value,
+                                  ),
+                                  blurRadius: 8 + (_glowAnimation.value * 15),
+                                  spreadRadius: 2 + (_glowAnimation.value * 8),
                                 ),
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.5),
@@ -296,14 +338,21 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                             ),
                           ),
                         ),
-                        // LISTENING text below logo
-                        if (voiceProvider.isRecording)
-                          Positioned(
-                            bottom: -80,
-                            child: AnimatedBuilder(
-                              animation: _pulseController,
-                              builder: (context, child) {
-                                return Transform.scale(
+                      ),
+                    ),
+                    // Audio level indicator - positioned at bottom center
+                    Positioned(
+                      left: MediaQuery.of(context).size.width / 2 - 50,
+                      bottom: MediaQuery.of(context).size.height * 0.2,
+                      child: AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // LISTENING text (only when recording)
+                              if (voiceProvider.isRecording)
+                                Transform.scale(
                                   scale: _pulseAnimation.value,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -335,17 +384,43 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
                                       ),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              );
-            },
-          ),
+                                ),
+                              if (voiceProvider.isRecording)
+                                const SizedBox(height: 8),
+                              // Always visible audio level indicator
+                              Container(
+                                width: 100,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: voiceProvider.audioLevel,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF00FFFF),
+                                          Color(0xFFFF00FF),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         ),
       ),
     );
